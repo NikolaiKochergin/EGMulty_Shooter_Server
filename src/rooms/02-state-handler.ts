@@ -77,6 +77,10 @@ export class StateHandlerRoom extends Room<State> {
         this.onMessage("shoot", (client, data) => {
             this.broadcast("Shoot", data, {except: client});
         });
+
+        this.onMessage("crouch", (client, data) => {
+            this.broadcast("Crouch", data, {except: client});
+        })
     }
 
     onAuth(client, options, req) {
