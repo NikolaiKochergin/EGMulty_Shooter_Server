@@ -15,13 +15,13 @@ export class Player extends Schema {
     speed = 0;
 
     @type("number")
-    pX = Math.floor(Math.random() * 50) - 25;
+    pX = 0;
 
     @type("number")
     pY = 0;
 
     @type("number")
-    pZ = Math.floor(Math.random() * 50) - 25;
+    pZ = 0;
 
     @type("number")
     vX = 0;
@@ -44,6 +44,8 @@ export class State extends Schema {
     players = new MapSchema<Player>();
 
     something = "This attribute won't be sent to the client-side";
+    spawnPoints: any;
+    busyPoints: string[] = [];
 
     createPlayer(sessionId: string, data: any) {
         const player = new Player();
@@ -51,10 +53,24 @@ export class State extends Schema {
         player.currentHP = data.hp;
         player.speed = data.speed;
 
+        const freeIndexes = [];
+
+        this.busyPoints.forEach((id, index) => {
+           if(id === '')
+               freeIndexes.push(index);
+        });
+
+        const playerIndex = freeIndexes[Math.floor(Math.random() * freeIndexes.length)];
+        this.busyPoints[playerIndex] = sessionId;
+        player.pX = this.spawnPoints[playerIndex].x;
+        player.pZ = this.spawnPoints[playerIndex].z;
+
         this.players.set(sessionId, player);
     }
 
     removePlayer(sessionId: string) {
+        const playerIndex = this.busyPoints.findIndex(id => id === sessionId);
+        this.busyPoints[playerIndex] = '';
         this.players.delete(sessionId);
     }
 
@@ -80,6 +96,10 @@ export class StateHandlerRoom extends Room<State> {
 
         this.setState(new State());
 
+        this.state.spawnPoints = options.sp;
+        this.state.busyPoints.length = options.sp.length;
+        this.state.busyPoints.fill('');
+
         this.onMessage("move", (client, data) => {
             //console.log("StateHandlerRoom received message from", client.sessionId, ":", data);
             this.state.movePlayer(client.sessionId, data);
@@ -87,6 +107,10 @@ export class StateHandlerRoom extends Room<State> {
 
         this.onMessage("shoot", (client, data) => {
             this.broadcast("Shoot", data, {except: client});
+        });
+
+        this.onMessage("weapon", (client, data) =>{
+            this.broadcast("Weapon", data, {except: client});
         });
 
         this.onMessage("damage", (client, data) => {
@@ -105,8 +129,9 @@ export class StateHandlerRoom extends Room<State> {
             for (let i = 0; i < this.clients.length; i++){
                 if(this.clients[i].id != clientID) continue;
 
-                const x = Math.floor(Math.random() * 50) - 25;
-                const z = Math.floor(Math.random() * 50) - 25;
+                const playerIndex = this.state.busyPoints.indexOf(clientID);
+                const x = this.state.spawnPoints[playerIndex].x;
+                const z = this.state.spawnPoints[playerIndex].z;
 
                 const  message = JSON.stringify({x, z});
                 this.clients[i].send("Restart", message);
