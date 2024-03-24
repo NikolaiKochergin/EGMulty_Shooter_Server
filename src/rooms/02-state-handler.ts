@@ -153,6 +153,7 @@ export class StateHandlerRoom extends Room<State> {
 
     onLeave (client) {
         this.state.removePlayer(client.sessionId);
+        if(this.clients.length === 1) this.unlock();
     }
 
     onDispose () {
